@@ -26,6 +26,9 @@ const handleLogin = async () => {
     }
     const data = await res.json()
     localStorage.setItem('token', data.token)
+    if (data.userId) {
+      localStorage.setItem('userId', data.userId)
+    }
     // 登入成功導向商品頁
     router.push('/products')
   } catch (e) {

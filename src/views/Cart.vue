@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { basic_url } from '@/config'
+import { useRouter } from 'vue-router'
 
 interface CartItem {
   id: number
@@ -14,6 +15,9 @@ interface CartItem {
 const cartItems = ref<CartItem[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
+const isLoggedIn = ref(false)
+
+const router = useRouter()
 
 function getUserId() {
   // 假設登入時 userId 存在 localStorage
@@ -59,7 +63,14 @@ async function removeItem(id: number) {
   }
 }
 
-onMounted(fetchCart)
+function goCheckout() {
+  router.push('/checkout')
+}
+
+onMounted(() => {
+  fetchCart()
+  isLoggedIn.value = !!getUserId()
+})
 </script>
 
 <template>
@@ -88,7 +99,17 @@ onMounted(fetchCart)
           </tr>
         </tbody>
       </table>
-      <div v-else class="empty">購物車是空的</div>
+      <button
+        v-if="cartItems.length"
+        class="checkout-btn"
+        @click="goCheckout"
+        :disabled="!isLoggedIn"
+        title="請先登入才能結帳"
+      >
+        前往結帳
+      </button>
+      <div v-if="cartItems.length && !isLoggedIn" class="login-tip">請先登入才能結帳</div>
+      <div v-if="!cartItems.length" class="empty">購物車是空的</div>
     </div>
   </div>
 </template>
@@ -136,5 +157,21 @@ button:disabled {
   text-align: center;
   color: #888;
   margin-top: 30px;
+}
+.checkout-btn {
+  margin-top: 24px;
+  width: 100%;
+  padding: 12px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.checkout-btn:hover {
+  background: #0056b3;
 }
 </style>
