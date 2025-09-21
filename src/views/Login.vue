@@ -28,32 +28,43 @@ const handleLogin = async () => {
     console.log('Before login, localStorage.sessionId:', localStorage.getItem('sessionId'))
     const sessionId = getSessionId()
     console.log('Login API will send sessionId:', sessionId)
-    const res = await fetch(`${basic_url}/api/auth/login`, {
+
+    // 修正：將sessionId作為查詢參數發送，而不是放在body中
+    const res = await fetch(`${basic_url}/api/auth/login?sessionId=${sessionId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.value, password: password.value, sessionId })
+      body: JSON.stringify({ email: email.value, password: password.value })
     })
+
     if (!res.ok) {
       const err = await res.text()
       errorMsg.value = err || '登入失敗，請檢查帳號密碼'
       loading.value = false
       return
     }
+
     const data = await res.json()
     localStorage.setItem('token', data.token)
+
     if (data.userId) {
       localStorage.setItem('userId', data.userId)
       console.log('After login, set localStorage.userId:', data.userId)
-      localStorage.removeItem('sessionId') // 登入後移除 sessionId
-      console.log('After login, removed localStorage.sessionId')
+
+      // 修正：延長等待時間確保後端合併完成
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // 登入成功後重新取得購物車
+      await cartStore.fetchCart()
+
+      // 確認購物車載入後再移除sessionId
+      localStorage.removeItem('sessionId')
+      console.log('After login and cart fetch, removed localStorage.sessionId')
     }
-    // 臨時延遲，驗證後端合併購物車時序
-    await new Promise(res => setTimeout(res, 300));
-    // 登入成功後重新取得購物車
-    await cartStore.fetchCart()
+
     // 登入成功導向商品頁
     router.push('/products')
   } catch (e) {
+    console.error('Login error:', e)
     errorMsg.value = '伺服器錯誤，請稍後再試'
   } finally {
     loading.value = false
