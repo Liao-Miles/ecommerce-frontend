@@ -1,5 +1,6 @@
 <template>
   <div class="admin-users">
+    <AdminNav />
     <h2>用戶管理</h2>
     <div v-if="loading">載入中...</div>
     <div v-else>
@@ -7,14 +8,20 @@
       <table v-if="users.length">
         <thead>
           <tr>
-            <th>ID</th>
+            <th @click="sortBy('id')" style="cursor:pointer;min-width:60px;">
+              ID
+              <span v-if="sortKey==='id'">{{ sortOrder==='asc'?'▲':'▼' }}</span>
+            </th>
             <th>Email</th>
-            <th>角色</th>
+            <th @click="sortBy('role')" style="cursor:pointer;min-width:60px;">
+              角色
+              <span v-if="sortKey==='role'">{{ sortOrder==='asc'?'▲':'▼' }}</span>
+            </th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="u in users" :key="u.id">
+          <tr v-for="u in sortedUsers" :key="u.id">
             <td>{{ u.id }}</td>
             <td>{{ u.email }}</td>
             <td>{{ u.role }}</td>
@@ -31,10 +38,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { basic_url } from '@/config';
+import AdminNav from '@/components/AdminNav.vue';
 
 interface User {
   id: number;
@@ -46,6 +54,8 @@ const router = useRouter();
 const users = ref<User[]>([]);
 const loading = ref(true);
 const errorMsg = ref('');
+const sortKey = ref<'id'|'role'>('id');
+const sortOrder = ref<'asc'|'desc'>('asc');
 
 const fetchUsers = async () => {
   loading.value = true;
@@ -98,6 +108,36 @@ const unblockUser = async (id: number) => {
     alert('解鎖失敗');
   }
 };
+
+const sortBy = (key: 'id'|'role') => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
+};
+
+const sortedUsers = computed(() => {
+  const arr = [...users.value];
+  arr.sort((a, b) => {
+    let v1 = a[sortKey.value];
+    let v2 = b[sortKey.value];
+    if (sortKey.value === 'id') {
+      v1 = Number(v1);
+      v2 = Number(v2);
+    } else if (sortKey.value === 'role') {
+      v1 = v1 || '';
+      v2 = v2 || '';
+    }
+    if (sortOrder.value === 'asc') {
+      return v1 > v2 ? 1 : v1 < v2 ? -1 : 0;
+    } else {
+      return v1 < v2 ? 1 : v1 > v2 ? -1 : 0;
+    }
+  });
+  return arr;
+});
 
 onMounted(fetchUsers);
 </script>

@@ -1,5 +1,6 @@
 <template>
   <div class="admin-orders">
+    <AdminNav />
     <h2>訂單管理</h2>
     <div v-if="loading">載入中...</div>
     <div v-else>
@@ -60,6 +61,7 @@ import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { basic_url } from '@/config';
 import OrderDetailModal from '@/components/OrderDetailModal.vue';
+import AdminNav from '@/components/AdminNav.vue';
 
 // 狀態選項，需與後端 OrderStatus enum 完全一致
 const statusOptions = [

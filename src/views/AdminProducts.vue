@@ -1,6 +1,6 @@
 <template>
   <div class="admin-products">
-    <h2>商品管理</h2>
+    <AdminNav />
     <div v-if="loading">載入中...</div>
     <div v-else>
       <div v-if="errorMsg" class="error">{{ errorMsg }}</div>
@@ -76,6 +76,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { basic_url } from '@/config';
+import AdminNav from '@/components/AdminNav.vue';
 
 interface Product {
   id: number;
