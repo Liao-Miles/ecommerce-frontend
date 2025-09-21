@@ -6,6 +6,12 @@ import Cart from '../views/Cart.vue'
 import Checkout from '../views/Checkout.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
+import AdminLogin from '../views/AdminLogin.vue'
+
+const AdminDashboard = () => import('../views/AdminDashboard.vue');
+const AdminProducts = () => import('../views/AdminProducts.vue');
+const AdminOrders = () => import('../views/AdminOrders.vue');
+const AdminUsers = () => import('../views/AdminUsers.vue');
 
 const routes = [
     { path: '/', component: Home },
@@ -15,6 +21,11 @@ const routes = [
     { path: '/checkout', name: 'Checkout', component: Checkout },
     { path: '/login', component: Login },
     { path: '/register', component: Register },
+    { path: '/admin/login', component: AdminLogin },
+    { path: '/admin/dashboard', component: AdminDashboard },
+    { path: '/admin/products', component: AdminProducts },
+    { path: '/admin/orders', component: AdminOrders },
+    { path: '/admin/users', component: AdminUsers },
 ]
 
 const router = createRouter({

@@ -28,7 +28,8 @@ const shippingMethod = ref('home')
 function getUserId() {
   return localStorage.getItem('userId')
 }
-function getSessionId() {
+function ensureSessionId() {
+  // 僅在訪客情境建立 sessionId
   let sessionId = localStorage.getItem('sessionId')
   if (!sessionId) {
     sessionId = Math.random().toString(36).substring(2) + Date.now()
@@ -42,8 +43,13 @@ async function fetchCart() {
   errorMsg.value = ''
   try {
     const userId = getUserId()
-    const sessionId = getSessionId()
-    const params = userId ? `userId=${userId}` : `sessionId=${sessionId}`
+    let params = ''
+    if (userId) {
+      params = `userId=${userId}`
+    } else {
+      const sessionId = ensureSessionId()
+      params = `sessionId=${sessionId}`
+    }
     const res = await fetch(`${basic_url}/cart?${params}`)
     if (!res.ok) throw new Error('無法取得購物車')
     cartItems.value = await res.json()
@@ -65,54 +71,70 @@ async function handlePayment() {
   }
   loading.value = true
   try {
-    // 1. 組成 orderRequest
     const userIdRaw = getUserId()
     const userId = userIdRaw ? Number(userIdRaw) : undefined
+
+    if (!userId) {
+      errorMsg.value = '請先登入'
+      return
+    }
+
     const token = localStorage.getItem('token')
     const headers: any = { 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
-    const orderRequest: any = {
-      userId,
-      totalAmount: total.value,
-      shippingName: recipient.value,
-      shippingPhone: phone.value,
-      shippingAddress: address.value,
-      shippingNote: note.value,
-      shippingMethod: shippingMethod.value,
-      items: cartItems.value.map(i => ({ productId: i.productId, quantity: i.quantity }))
-    }
-    // 2. 呼叫 /orders 建立訂單
-    const orderRes = await fetch(`${basic_url}/orders`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(orderRequest)
+
+    // 步驟1：從購物車結帳 - 檢查庫存並建立待付款訂單
+    const shippingAddress = `${address.value}${note.value ? ' (備註: ' + note.value + ')' : ''}`
+    const checkoutParams = new URLSearchParams({
+      userId: userId.toString(),
+      shippingAddress: shippingAddress
     })
-    if (!orderRes.ok) {
-      const errText = await orderRes.text()
-      throw new Error(errText || '建立訂單失敗')
+
+    const checkoutRes = await fetch(`${basic_url}/orders/checkout-cart?${checkoutParams}`, {
+      method: 'POST',
+      headers
+    })
+
+    if (!checkoutRes.ok) {
+      const errText = await checkoutRes.text()
+      throw new Error(errText || '結帳失敗，可能是庫存不足')
     }
-    const orderData = await orderRes.json()
+
+    const orderData = await checkoutRes.json()
     const orderId = orderData.id
-    // 3. 組成 paymentRequest
+
+    // 步驟2：處理付款
     const paymentRequest = {
       orderId,
       method: paymentMethod.value
     }
-    // 4. 呼叫 /payments 完成付款
+
     const payRes = await fetch(`${basic_url}/payments`, {
       method: 'POST',
       headers,
       body: JSON.stringify(paymentRequest)
     })
+
     if (!payRes.ok) {
       const errText = await payRes.text()
       throw new Error(errText || '付款失敗')
     }
+
     const payData = await payRes.json()
-    successMsg.value = `付款成功！訂單編號：${payData.id}，狀態：${payData.status}，金額：${payData.total_amount}`
-    setTimeout(() => router.push('/'), 2000)
+
+    // 根據付款方式顯示不同的成功信息
+    if (paymentMethod.value === '貨到付款') {
+      successMsg.value = `訂單建立成功！訂單編號：${orderId}，狀態：等待送達確認付款，金額：${payData.total_amount || total.value}`
+    } else {
+      successMsg.value = `付款成功！訂單編號：${orderId}，狀態：${payData.status}，金額：${payData.total_amount || total.value}`
+    }
+
+    // 清空購物車資料（因為後端已經清空了）
+    cartItems.value = []
+
+    setTimeout(() => router.push('/'), 3000)
   } catch (e: any) {
-    errorMsg.value = e.message || '付款失敗'
+    errorMsg.value = e.message || '結帳失敗'
   } finally {
     loading.value = false
   }

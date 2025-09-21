@@ -1,18 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { basic_url } from '@/config'
 import { useRouter } from 'vue-router'
+import { useCartStore, CartItem } from '@/store/cart'
 
-interface CartItem {
-  id: number
-  productId: number
-  productName: string
-  price: number
-  quantity: number
-  subtotal: number
-}
-
-const cartItems = ref<CartItem[]>([])
+const cartStore = useCartStore()
+const cartItems = computed<CartItem[]>(() => cartStore.items)
 const loading = ref(false)
 const errorMsg = ref('')
 const isLoggedIn = ref(false)
@@ -20,33 +13,7 @@ const isLoggedIn = ref(false)
 const router = useRouter()
 
 function getUserId() {
-  // 假設登入時 userId 存在 localStorage
   return localStorage.getItem('userId')
-}
-function getSessionId() {
-  let sessionId = localStorage.getItem('sessionId')
-  if (!sessionId) {
-    sessionId = Math.random().toString(36).substring(2) + Date.now()
-    localStorage.setItem('sessionId', sessionId)
-  }
-  return sessionId
-}
-
-async function fetchCart() {
-  loading.value = true
-  errorMsg.value = ''
-  try {
-    const userId = getUserId()
-    const sessionId = getSessionId()
-    const params = userId ? `userId=${userId}` : `sessionId=${sessionId}`
-    const res = await fetch(`${basic_url}/cart?${params}`)
-    if (!res.ok) throw new Error('無法取得購物車')
-    cartItems.value = await res.json()
-  } catch (e: any) {
-    errorMsg.value = e.message || '發生錯誤'
-  } finally {
-    loading.value = false
-  }
 }
 
 async function removeItem(id: number) {
@@ -55,7 +22,7 @@ async function removeItem(id: number) {
   try {
     const res = await fetch(`${basic_url}/cart/${id}`, { method: 'DELETE' })
     if (!res.ok) throw new Error('刪除失敗')
-    await fetchCart()
+    await cartStore.fetchCart()
   } catch (e: any) {
     errorMsg.value = e.message || '發生錯誤'
   } finally {
@@ -68,7 +35,7 @@ function goCheckout() {
 }
 
 onMounted(() => {
-  fetchCart()
+  cartStore.fetchCart()
   isLoggedIn.value = !!getUserId()
 })
 </script>
@@ -82,6 +49,7 @@ onMounted(() => {
       <table v-if="cartItems.length" class="cart-table">
         <thead>
           <tr>
+            <th>圖片</th>
             <th>商品名稱</th>
             <th>單價</th>
             <th>數量</th>
@@ -91,6 +59,9 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="item in cartItems" :key="item.id">
+            <td>
+              <img v-if="item.imageUrl" :src="item.imageUrl" alt="商品圖片" style="max-width:60px;max-height:60px;object-fit:cover;border-radius:6px;border:1px solid #b2dfdb;background:#fff;" />
+            </td>
             <td>{{ item.productName }}</td>
             <td>{{ item.price }}</td>
             <td>{{ item.quantity }}</td>

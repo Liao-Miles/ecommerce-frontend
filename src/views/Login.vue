@@ -2,21 +2,36 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { basic_url } from '@/config'
+import { useCartStore } from '@/store/cart'
 
 const email = ref('')
 const password = ref('')
 const errorMsg = ref('')
 const loading = ref(false)
 const router = useRouter()
+const cartStore = useCartStore()
+
+function getSessionId() {
+  let sessionId = localStorage.getItem('sessionId')
+  if (!sessionId) {
+    sessionId = Math.random().toString(36).substring(2) + Date.now()
+    localStorage.setItem('sessionId', sessionId)
+  }
+  return sessionId
+}
 
 const handleLogin = async () => {
   errorMsg.value = ''
   loading.value = true
   try {
+    // 登入前 log sessionId
+    console.log('Before login, localStorage.sessionId:', localStorage.getItem('sessionId'))
+    const sessionId = getSessionId()
+    console.log('Login API will send sessionId:', sessionId)
     const res = await fetch(`${basic_url}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.value, password: password.value })
+      body: JSON.stringify({ email: email.value, password: password.value, sessionId })
     })
     if (!res.ok) {
       const err = await res.text()
@@ -28,7 +43,14 @@ const handleLogin = async () => {
     localStorage.setItem('token', data.token)
     if (data.userId) {
       localStorage.setItem('userId', data.userId)
+      console.log('After login, set localStorage.userId:', data.userId)
+      localStorage.removeItem('sessionId') // 登入後移除 sessionId
+      console.log('After login, removed localStorage.sessionId')
     }
+    // 臨時延遲，驗證後端合併購物車時序
+    await new Promise(res => setTimeout(res, 300));
+    // 登入成功後重新取得購物車
+    await cartStore.fetchCart()
     // 登入成功導向商品頁
     router.push('/products')
   } catch (e) {
@@ -54,6 +76,10 @@ const handleLogin = async () => {
       <button type="submit" :disabled="loading">{{ loading ? '登入中...' : '登入' }}</button>
       <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
     </form>
+    <div class="register-link">
+      還沒有帳號？
+      <a href="#" @click.prevent="router.push('/register')">註冊帳號</a>
+    </div>
   </div>
 </template>
 
@@ -100,5 +126,16 @@ button:disabled {
   color: #d00;
   margin-top: 10px;
   text-align: center;
+}
+.register-link {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 15px;
+}
+.register-link a {
+  color: #42b983;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 4px;
 }
 </style>
