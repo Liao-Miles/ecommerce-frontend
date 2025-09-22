@@ -172,8 +172,19 @@ const getStatusText = (status: string) => {
 // 顯示顧客姓名和email縮寫
 const getCustomerDisplay = (order: Order) => {
   const email = users.value[order.userId] || '';
-  const name = email.split('@')[0]; // 取email @ 前的部分作為姓名顯示
-  return `${name} (${email})`;
+  const name = order.shippingName || '';
+  let emailShort = email;
+  const atIdx = email.indexOf('@');
+  if (atIdx > 2) {
+    emailShort = email.substring(0, 3) + '**' + email.substring(atIdx);
+  } else if (atIdx > 0) {
+    emailShort = email[0] + '**' + email.substring(atIdx);
+  }
+  if (name) {
+    return `${name} (${emailShort})`;
+  } else {
+    return emailShort;
+  }
 };
 
 // 狀態切換事件
