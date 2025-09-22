@@ -84,15 +84,24 @@ async function handlePayment() {
     if (token) headers['Authorization'] = `Bearer ${token}`
 
     // 步驟1：從購物車結帳 - 檢查庫存並建立待付款訂單
-    const shippingAddress = `${address.value}${note.value ? ' (備註: ' + note.value + ')' : ''}`
-    const checkoutParams = new URLSearchParams({
-      userId: userId.toString(),
-      shippingAddress: shippingAddress
-    })
+    const items = cartItems.value.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity
+    }))
+    const checkoutRequest = {
+      userId,
+      items,
+      shippingAddress: address.value,
+      shippingName: recipient.value,
+      shippingPhone: phone.value,
+      shippingMethod: shippingMethod.value,
+      shippingNote: note.value
+    }
 
-    const checkoutRes = await fetch(`${basic_url}/orders/checkout-cart?${checkoutParams}`, {
+    const checkoutRes = await fetch(`${basic_url}/orders/checkout-cart`, {
       method: 'POST',
-      headers
+      headers,
+      body: JSON.stringify(checkoutRequest)
     })
 
     if (!checkoutRes.ok) {

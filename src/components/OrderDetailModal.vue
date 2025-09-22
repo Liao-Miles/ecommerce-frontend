@@ -21,7 +21,7 @@
         <div class="detail-cell"><b>電話：</b>{{ order.shippingPhone }}</div>
         <div class="detail-cell"><b>地址：</b>{{ order.shippingAddress }}</div>
         <div class="detail-cell"><b>備註：</b>{{ order.shippingNote }}</div>
-        <div class="detail-cell"><b>配送方式：</b>{{ order.shippingMethod }}</div>
+        <div class="detail-cell"><b>配送方式：</b>{{ getShippingMethodText(order.shippingMethod) }}</div>
       </div>
       <h3 class="items-title">商品明細</h3>
       <div class="items-table-wrapper">
@@ -89,6 +89,12 @@ function getCustomerDisplay(order: any): string {
   } else {
     return emailShort;
   }
+}
+
+function getShippingMethodText(method: string) {
+  if (method === 'home') return '宅配到家';
+  if (method === 'store') return '超商取貨';
+  return method || '-';
 }
 </script>
 
