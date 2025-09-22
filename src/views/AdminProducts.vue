@@ -12,6 +12,7 @@
             <th>名稱</th>
             <th>價格</th>
             <th>庫存</th>
+            <th>分類</th>
             <th>圖片</th>
             <th>操作</th>
           </tr>
@@ -22,6 +23,7 @@
             <td>{{ p.name }}</td>
             <td>{{ p.price }}</td>
             <td>{{ p.stock }}</td>
+            <td>{{ p.categories?.map(c => c.name).join(', ') || '無分類' }}</td>
             <td>
               <img v-if="p.imageUrl" :src="p.imageUrl" alt="商品圖片" style="max-width:60px;max-height:60px;object-fit:cover;" />
             </td>
@@ -33,6 +35,7 @@
         </tbody>
       </table>
       <div v-else>目前沒有商品</div>
+
       <!-- 新增商品表單 -->
       <div v-if="showCreate" class="modal">
         <div class="modal-content">
@@ -40,6 +43,14 @@
           <label>名稱：<input v-model="newName" required /></label><br />
           <label>價格：<input v-model.number="newPrice" type="number" min="0" required /></label><br />
           <label>庫存：<input v-model.number="newStock" type="number" min="0" required /></label><br />
+          <label>分類：
+            <select multiple v-model="newCategoryIds" style="width:100%;height:120px;margin-top:4px;padding:4px;">
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
+            <small style="color:#666;display:block;margin-top:4px;">按住 Ctrl 或 Cmd 可多選，至少選擇一個分類</small>
+          </label><br />
           <label>圖片網址：<input v-model="newImageUrl" placeholder="可不填" /></label>
           <input type="file" accept="image/*" @change="e => handleUpload(e, 'new')" style="margin-top:8px;" />
           <div v-if="uploadingNew" style="color:#888;">圖片上傳中...</div>
@@ -47,9 +58,10 @@
             <img :src="newImageUrl" alt="預覽" style="max-width:120px;max-height:120px;object-fit:cover;" />
           </div>
           <button @click="createProduct">新增</button>
-          <button @click="showCreate = false">取消</button>
+          <button @click="cancelCreate">取消</button>
         </div>
       </div>
+
       <!-- 編輯商品表單 -->
       <div v-if="editId !== null" class="modal">
         <div class="modal-content">
@@ -57,6 +69,14 @@
           <label>名稱：<input v-model="editName" required /></label><br />
           <label>價格：<input v-model.number="editPrice" type="number" min="0" required /></label><br />
           <label>庫存：<input v-model.number="editStock" type="number" min="0" required /></label><br />
+          <label>分類：
+            <select multiple v-model="editCategoryIds" style="width:100%;height:120px;margin-top:4px;padding:4px;">
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
+            <small style="color:#666;display:block;margin-top:4px;">按住 Ctrl 或 Cmd 可多選，至少選擇一個分類</small>
+          </label><br />
           <label>圖片網址：<input v-model="editImageUrl" placeholder="可不填" /></label>
           <input type="file" accept="image/*" @change="e => handleUpload(e, 'edit')" style="margin-top:8px;" />
           <div v-if="uploadingEdit" style="color:#888;">圖片上傳中...</div>
@@ -84,10 +104,17 @@ interface Product {
   price: number;
   stock: number;
   imageUrl?: string;
+  categories: { id: number; name: string }[];
+}
+
+interface Category {
+  id: number;
+  name: string;
 }
 
 const router = useRouter();
 const products = ref<Product[]>([]);
+const categories = ref<Category[]>([]);
 const loading = ref(true);
 const errorMsg = ref('');
 const showCreate = ref(false);
@@ -95,11 +122,13 @@ const newName = ref('');
 const newPrice = ref(0);
 const newStock = ref(0);
 const newImageUrl = ref('');
+const newCategoryIds = ref<number[]>([]);
 const editId = ref<number|null>(null);
 const editName = ref('');
 const editPrice = ref(0);
 const editStock = ref(0);
 const editImageUrl = ref('');
+const editCategoryIds = ref<number[]>([]);
 const uploadingNew = ref(false);
 const uploadingEdit = ref(false);
 
@@ -127,32 +156,66 @@ const fetchProducts = async () => {
   }
 };
 
+const fetchCategories = async () => {
+  try {
+    const token = localStorage.getItem('admin_token');
+    const res = await axios.get(`${basic_url}/categories`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    categories.value = res.data;
+    console.log('載入的分類數量:', categories.value.length);
+    console.log('分類詳細:', categories.value);
+  } catch (e) {
+    console.error('載入分類失敗', e);
+  }
+};
+
 const startEdit = (p: Product) => {
   editId.value = p.id;
   editName.value = p.name;
   editPrice.value = p.price;
   editStock.value = p.stock;
   editImageUrl.value = p.imageUrl || '';
+  editCategoryIds.value = p.categories?.map(c => c.id) || [];
 };
+
 const cancelEdit = () => {
   editId.value = null;
   editName.value = '';
   editPrice.value = 0;
   editStock.value = 0;
   editImageUrl.value = '';
+  editCategoryIds.value = [];
 };
+
+const cancelCreate = () => {
+  showCreate.value = false;
+  newName.value = '';
+  newPrice.value = 0;
+  newStock.value = 0;
+  newImageUrl.value = '';
+  newCategoryIds.value = [];
+};
+
 const saveEdit = async (id: number) => {
   if (!editName.value || editPrice.value === null || editStock.value === null) {
     alert('請填寫所有欄位');
     return;
   }
+
+  if (editCategoryIds.value.length === 0) {
+    alert('請至少選擇一個分類');
+    return;
+  }
+
   try {
     const token = localStorage.getItem('admin_token');
     await axios.put(`${basic_url}/admin/products/${id}`, {
       name: editName.value,
       price: editPrice.value,
       stock: editStock.value,
-      imageUrl: editImageUrl.value || ''
+      imageUrl: editImageUrl.value || '',
+      categoryIds: editCategoryIds.value
     }, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -167,6 +230,7 @@ const saveEdit = async (id: number) => {
     }
   }
 };
+
 const deleteProduct = async (id: number) => {
   if (!confirm('確定要刪除此商品嗎？')) return;
   try {
@@ -184,26 +248,30 @@ const deleteProduct = async (id: number) => {
     }
   }
 };
+
 const createProduct = async () => {
   if (!newName.value || newPrice.value < 0 || newStock.value === null) {
     alert('請輸入正確的名稱、價格與庫存');
     return;
   }
+
+  if (newCategoryIds.value.length === 0) {
+    alert('請至少選擇一個分類');
+    return;
+  }
+
   try {
     const token = localStorage.getItem('admin_token');
     await axios.post(`${basic_url}/admin/products`, {
       name: newName.value,
       price: newPrice.value,
       stock: newStock.value,
-      imageUrl: newImageUrl.value || ''
+      imageUrl: newImageUrl.value || '',
+      categoryIds: newCategoryIds.value
     }, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    showCreate.value = false;
-    newName.value = '';
-    newPrice.value = 0;
-    newStock.value = 0;
-    newImageUrl.value = '';
+    cancelCreate();
     fetchProducts();
   } catch (e: any) {
     if (e.response && (e.response.status === 401 || e.response.status === 403)) {
@@ -218,28 +286,31 @@ const createProduct = async () => {
 const handleUpload = async (event: Event, type: 'new' | 'edit') => {
   const input = event.target as HTMLInputElement;
   if (!input.files || !input.files[0]) return;
+
   const file = input.files[0];
   const fileName = `${Date.now()}_${file.name}`;
   const fileType = file.type;
+
   if (type === 'new') uploadingNew.value = true;
   else uploadingEdit.value = true;
+
   try {
     const token = localStorage.getItem('admin_token');
-    // 1. 取得 presigned url，這裡要帶上 Authorization header
     const res = await axios.post(`${basic_url}/api/upload/get-presigned-url`, {
       fileName,
       fileType
     }, {
       headers: { Authorization: `Bearer ${token}` }
     });
+
     const { uploadUrl, fileUrl } = res.data;
-    // 2. PUT 圖片到 uploadUrl
+
     await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': fileType },
       body: file
     });
-    // 3. 設定 imageUrl
+
     if (type === 'new') newImageUrl.value = fileUrl;
     else editImageUrl.value = fileUrl;
   } catch (e) {
@@ -250,12 +321,15 @@ const handleUpload = async (event: Event, type: 'new' | 'edit') => {
   }
 };
 
-onMounted(fetchProducts);
+onMounted(() => {
+  fetchProducts();
+  fetchCategories();
+});
 </script>
 
 <style scoped>
 .admin-products {
-  max-width: 900px;
+  max-width: 1100px;
   margin: 40px auto;
   padding: 32px;
   border: 1px solid #b2dfdb;
@@ -263,12 +337,14 @@ onMounted(fetchProducts);
   background: #e8f5e9;
   box-shadow: 0 2px 12px rgba(76,175,80,0.08);
 }
+
 h2 {
   color: #388e3c;
   text-align: center;
   margin-bottom: 28px;
   letter-spacing: 2px;
 }
+
 button {
   background: linear-gradient(90deg, #43a047 0%, #66bb6a 100%);
   color: #fff;
@@ -280,14 +356,17 @@ button {
   cursor: pointer;
   transition: background 0.2s;
 }
+
 button:hover {
   background: #388e3c;
 }
+
 button:disabled {
   background: #bdbdbd;
   color: #eee;
   cursor: not-allowed;
 }
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -298,6 +377,7 @@ table {
   box-shadow: 0 1px 6px rgba(76,175,80,0.07);
   table-layout: fixed;
 }
+
 th {
   background: #a5d6a7;
   color: #1b5e20;
@@ -305,6 +385,7 @@ th {
   font-weight: 600;
   letter-spacing: 1px;
 }
+
 th, td {
   border: 1px solid #c8e6c9;
   padding: 10px 8px;
@@ -313,13 +394,16 @@ th, td {
   height: 44px;
   overflow: hidden;
 }
+
 th:nth-child(1), td:nth-child(1) { width: 6%; }
-th:nth-child(2), td:nth-child(2) { width: 18%; }
-th:nth-child(3), td:nth-child(3) { width: 13%; }
-th:nth-child(4), td:nth-child(4) { width: 13%; }
-th:nth-child(5), td:nth-child(5) { width: 18%; }
-th:nth-child(6), td:nth-child(6) { width: 32%; }
-input[type="text"], input[type="number"] {
+th:nth-child(2), td:nth-child(2) { width: 15%; }
+th:nth-child(3), td:nth-child(3) { width: 10%; }
+th:nth-child(4), td:nth-child(4) { width: 10%; }
+th:nth-child(5), td:nth-child(5) { width: 20%; }
+th:nth-child(6), td:nth-child(6) { width: 15%; }
+th:nth-child(7), td:nth-child(7) { width: 24%; }
+
+input[type="text"], input[type="number"], select {
   border: 1px solid #b2dfdb;
   border-radius: 4px;
   padding: 5px 8px;
@@ -333,15 +417,18 @@ input[type="text"], input[type="number"] {
   margin: 0;
   vertical-align: middle;
 }
-input[type="text"]:focus, input[type="number"]:focus {
+
+input[type="text"]:focus, input[type="number"]:focus, select:focus {
   border: 1.5px solid #43a047;
 }
+
 .error {
   color: #d32f2f;
   margin-bottom: 12px;
   text-align: center;
   font-weight: 500;
 }
+
 .modal {
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;
@@ -351,30 +438,40 @@ input[type="text"]:focus, input[type="number"]:focus {
   justify-content: center;
   z-index: 1000;
 }
+
 .modal-content {
   background: #f1f8e9;
   padding: 32px 28px;
   border-radius: 10px;
-  min-width: 320px;
+  min-width: 380px;
+  max-width: 500px;
   box-shadow: 0 2px 16px rgba(76,175,80,0.13);
   border: 1.5px solid #a5d6a7;
+  max-height: 80vh;
+  overflow-y: auto;
 }
+
 .modal-content h3 {
   color: #388e3c;
   margin-bottom: 18px;
   text-align: center;
 }
+
 .modal-content label {
   color: #388e3c;
   font-weight: 500;
   margin-bottom: 6px;
   display: inline-block;
+  width: 100%;
 }
+
 .modal-content input[type="text"],
-.modal-content input[type="number"] {
+.modal-content input[type="number"],
+.modal-content select {
   margin-bottom: 10px;
-  width: 90%;
+  width: 100%;
 }
+
 img {
   border-radius: 6px;
   border: 1px solid #b2dfdb;
