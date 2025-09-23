@@ -153,15 +153,20 @@ onMounted(() => {
 .search-input, .search-select {
   padding: 8px 14px;
   border-radius: 8px;
-  border: 1.2px solid #b2dfdb;
+  border: 1.5px solid #b2dfdb;
   font-size: 15px;
   background: #fff;
-  transition: border 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  box-sizing: border-box;
+  height: 40px; /* 強制固定高度，避免focus時因box-shadow或border變化導致高度變動 */
 }
+
 .search-input:focus, .search-select:focus {
-  border: 1.5px solid #4caf50;
+  border-color: #4caf50; /* 只改顏色，不改厚度 */
   outline: none;
+  box-shadow: 0 0 0 2px rgba(76,175,80,0.2); /* 額外的 focus 效果 */
 }
+
 .search-btn {
   background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
   color: #fff;
