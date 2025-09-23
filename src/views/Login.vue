@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { basic_url } from '@/config'
 import { useCartStore } from '@/store/cart'
+
+// 宣告給 TypeScript 用，避免報錯
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const email = ref('')
 const password = ref('')
@@ -24,52 +31,79 @@ const handleLogin = async () => {
   errorMsg.value = ''
   loading.value = true
   try {
-    // 登入前 log sessionId
-    console.log('Before login, localStorage.sessionId:', localStorage.getItem('sessionId'))
     const sessionId = getSessionId()
-    console.log('Login API will send sessionId:', sessionId)
-
-    // 修正：將sessionId作為查詢參數發送，而不是放在body中
     const res = await fetch(`${basic_url}/api/auth/login?sessionId=${sessionId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.value, password: password.value })
     })
-
     if (!res.ok) {
-      const err = await res.text()
-      errorMsg.value = err || '登入失敗，請檢查帳號密碼'
+      errorMsg.value = await res.text() || '登入失敗'
       loading.value = false
       return
     }
-
     const data = await res.json()
     localStorage.setItem('token', data.token)
-
     if (data.userId) {
       localStorage.setItem('userId', data.userId)
-      console.log('After login, set localStorage.userId:', data.userId)
-
-      // 修正：延長等待時間確保後端合併完成
       await new Promise(resolve => setTimeout(resolve, 500))
-
-      // 登入成功後重新取得購物車
       await cartStore.fetchCart()
-
-      // 確認購物車載入後再移除sessionId
       localStorage.removeItem('sessionId')
-      console.log('After login and cart fetch, removed localStorage.sessionId')
     }
-
-    // 登入成功導向商品頁
     router.push('/products')
-  } catch (e) {
-    console.error('Login error:', e)
-    errorMsg.value = '伺服器錯誤，請稍後再試'
+  } catch {
+    errorMsg.value = '伺服器錯誤'
   } finally {
     loading.value = false
   }
 }
+
+// Google 登入 callback
+function handleGoogleLogin(response: any) {
+  loading.value = true
+  fetch(`${basic_url}/api/auth/oauth2/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: response.credential })
+  })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      })
+      .then(async data => {
+        localStorage.setItem('token', data.token)
+        if (data.userId) {
+          localStorage.setItem('userId', data.userId)
+          await new Promise(resolve => setTimeout(resolve, 500))
+          await cartStore.fetchCart()
+        }
+        router.push('/products')
+      })
+      .catch(e => {
+        errorMsg.value = e.message || 'Google 登入失敗'
+      })
+      .finally(() => {
+        loading.value = false
+      })
+}
+
+onMounted(() => {
+  const init = () => {
+    if (window.google && window.google.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: '511398803371-lapa482s6npsp6tbiph4satd3b505fkh.apps.googleusercontent.com',
+        callback: handleGoogleLogin
+      })
+      window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-btn'),
+          { theme: 'outline', size: 'large' }
+      )
+    } else {
+      setTimeout(init, 300)
+    }
+  }
+  init()
+})
 </script>
 
 <template>
@@ -87,12 +121,19 @@ const handleLogin = async () => {
       <button type="submit" :disabled="loading">{{ loading ? '登入中...' : '登入' }}</button>
       <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
     </form>
+
     <div class="register-link">
       還沒有帳號？
       <a href="#" @click.prevent="router.push('/register')">註冊帳號</a>
     </div>
+
+    <!-- Google 登入按鈕 -->
+    <div class="google-login">
+      <div id="google-signin-btn"></div>
+    </div>
   </div>
 </template>
+
 
 <style scoped>
 .login-container {
@@ -148,5 +189,10 @@ button:disabled {
   text-decoration: underline;
   cursor: pointer;
   margin-left: 4px;
+}
+.google-login {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
 }
 </style>
