@@ -18,8 +18,8 @@
               建立時間
               <span v-if="sortKey==='createdAt'">{{ sortOrder==='asc'?'▲':'▼' }}</span>
             </th>
-            <th style="width: 120px;">配送狀態</th>
             <th style="width: 120px;">訂單狀態</th>
+            <th style="width: 120px;">付款狀態</th>
             <th style="width: 160px;">操作</th>
           </tr>
         </thead>
@@ -30,14 +30,12 @@
             <td>{{ o.totalAmount }}</td>
             <td>{{ formatDateTime(o.createdAt) }}</td>
             <td>
-              <span class="badge badge-shipping" :class="'shipping-' + (o.shippingStatus || 'unknown')" :data-status="o.shippingStatus || 'unknown'">
-                {{ o.shippingStatus || '-' }}
-              </span>
-            </td>
-            <td>
               <span class="badge badge-status" :class="'status-' + (o.status || 'unknown')" :data-status="o.status || 'unknown'">
                 {{ getStatusText(o.status) }}
               </span>
+            </td>
+            <td>
+              <span class="badge" :style="'background:#888;'">{{ paymentStatusText[o.paymentStatus] || o.paymentStatus }}</span>
             </td>
             <td>
               <button class="btn-detail" @click="showDetail(o)">查看詳情</button>
@@ -59,19 +57,26 @@
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
-import { basic_url } from '@/config';
+import { basic_url, OrderStatus, PaymentStatus } from '@/config';
 import OrderDetailModal from '@/components/OrderDetailModal.vue';
 import AdminNav from '@/components/AdminNav.vue';
 
-// 狀態選項，需與後端 OrderStatus enum 完全一致
+// 狀態選項，僅顯示訂單進度
 const statusOptions = [
-  { value: 'PENDING_PAYMENT', text: '待付款' },
-  { value: 'PAID', text: '已付款' },
-  { value: 'CONFIRMED', text: '已確認' },
-  { value: 'SHIPPED', text: '已出貨' },
-  { value: 'COMPLETED', text: '已完成' },
-  { value: 'CANCELLED', text: '已取消' }
+  { value: OrderStatus.CREATED, text: '已建立' },
+  { value: OrderStatus.PROCESSING, text: '處理中' },
+  { value: OrderStatus.SHIPPED, text: '已出貨' },
+  { value: OrderStatus.COMPLETED, text: '已完成' },
+  { value: OrderStatus.CANCELLED, text: '已取消' }
 ];
+
+// 金流狀態顯示對應
+const paymentStatusText: Record<string, string> = {
+  [PaymentStatus.PENDING]: '待付款',
+  [PaymentStatus.SUCCESS]: '付款成功',
+  [PaymentStatus.FAILED]: '付款失敗',
+  [PaymentStatus.REFUNDED]: '已退款',
+};
 
 interface OrderUser {
   email: string;
@@ -80,7 +85,8 @@ interface Order {
   id: number;
   userId: number;
   totalAmount: number;
-  status: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
   shippingStatus?: string;
   createdAt: string;
   shippingName?: string;
@@ -126,7 +132,11 @@ const fetchOrders = async () => {
     const res = await axios.get(`${basic_url}/admin/orders`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    orders.value = res.data;
+    // 確保每筆訂單都有 paymentStatus 欄位
+    orders.value = res.data.map((o: any) => ({
+      ...o,
+      paymentStatus: o.paymentStatus || PaymentStatus.PENDING
+    }));
   } catch (e: any) {
     if (e.response && (e.response.status === 401 || e.response.status === 403)) {
       router.push('/admin/login');
@@ -140,7 +150,7 @@ const fetchOrders = async () => {
 
 // 狀態是否可編輯（已完成/已取消不可再更改）
 const canEditStatus = (status: string) => {
-  return status !== 'COMPLETED' && status !== 'CANCELLED';
+  return true;
 };
 
 // 狀態顏色
@@ -159,12 +169,11 @@ const getStatusColor = (status: string) => {
 // 狀態中文
 const getStatusText = (status: string) => {
   switch (status) {
-    case 'PENDING_PAYMENT': return '待付款';
-    case 'PAID': return '已付款';
-    case 'CONFIRMED': return '已確認';
-    case 'SHIPPED': return '已出貨';
-    case 'COMPLETED': return '已完成';
-    case 'CANCELLED': return '已取消';
+    case OrderStatus.CREATED: return '已建立';
+    case OrderStatus.PROCESSING: return '處理中';
+    case OrderStatus.SHIPPED: return '已出貨';
+    case OrderStatus.COMPLETED: return '已完成';
+    case OrderStatus.CANCELLED: return '已取消';
     default: return status;
   }
 };
@@ -307,18 +316,19 @@ tr:nth-child(even) {
   font-weight: 500;
   color: #fff;
 }
-.badge-shipping.shipping-pending { background: #f39c12; }
-.badge-shipping.shipping-shipped { background: #3498db; }
-.badge-shipping.shipping-delivered { background: #27ae60; }
-.badge-shipping.shipping-cancelled { background: #e74c3c; }
-.badge-shipping.shipping-unknown { background: #b2bec3; }
-.badge-status.status-PENDING_PAYMENT { background: #f39c12; }
-.badge-status.status-PAID { background: #3498db; }
-.badge-status.status-CONFIRMED { background: #8e44ad; }
-.badge-status.status-SHIPPED { background: #9b59b6; }
-.badge-status.status-COMPLETED { background: #27ae60; }
-.badge-status.status-CANCELLED { background: #e74c3c; }
-.badge-status.status-unknown { background: #b2bec3; }
+.badge-status {
+  color: #111 !important;
+  font-weight: bold;
+  background: #e0e0e0;
+  border-radius: 12px;
+  border: none;
+}
+.badge-status.status-CREATED { background: #ffe082; }
+.badge-status.status-PROCESSING { background: #b3e5fc; }
+.badge-status.status-SHIPPED { background: #c8e6c9; }
+.badge-status.status-COMPLETED { background: #fff9c4; }
+.badge-status.status-CANCELLED { background: #ffcdd2; }
+.badge-status.status-unknown { background: #e0e0e0; }
 .btn-detail {
   background: #fff;
   border: 1px solid #3498db;

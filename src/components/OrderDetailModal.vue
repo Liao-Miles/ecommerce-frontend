@@ -194,13 +194,19 @@ function getShippingMethodText(method: string) {
 .badge-shipping.shipping-delivered { background: #27ae60; }
 .badge-shipping.shipping-cancelled { background: #e74c3c; }
 .badge-shipping.shipping-unknown { background: #b2bec3; }
-.badge-status.status-PENDING_PAYMENT { background: #f39c12; }
-.badge-status.status-PAID { background: #3498db; }
-.badge-status.status-CONFIRMED { background: #8e44ad; }
-.badge-status.status-SHIPPED { background: #9b59b6; }
-.badge-status.status-COMPLETED { background: #27ae60; }
-.badge-status.status-CANCELLED { background: #e74c3c; }
-.badge-status.status-unknown { background: #b2bec3; }
+.badge-status {
+  color: #111 !important;
+  font-weight: bold;
+  background: #e0e0e0;
+  border-radius: 12px;
+  border: none;
+}
+.badge-status.status-CREATED { background: #ffe082; }
+.badge-status.status-PROCESSING { background: #b3e5fc; }
+.badge-status.status-SHIPPED { background: #c8e6c9; }
+.badge-status.status-COMPLETED { background: #fff9c4; }
+.badge-status.status-CANCELLED { background: #ffcdd2; }
+.badge-status.status-unknown { background: #e0e0e0; }
 .btn-close {
   margin-top: 24px;
   padding: 8px 28px;
