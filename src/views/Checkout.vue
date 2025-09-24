@@ -73,7 +73,6 @@ async function handlePayment() {
   try {
     const userIdRaw = getUserId()
     const userId = userIdRaw ? Number(userIdRaw) : undefined
-
     if (!userId) {
       errorMsg.value = '請先登入'
       return
@@ -83,7 +82,7 @@ async function handlePayment() {
     const headers: any = { 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
 
-    // 步驟1：從購物車結帳 - 檢查庫存並建立待付款訂單
+    // 步驟1：建立訂單
     const items = cartItems.value.map(item => ({
       productId: item.productId,
       quantity: item.quantity
@@ -103,45 +102,52 @@ async function handlePayment() {
       headers,
       body: JSON.stringify(checkoutRequest)
     })
-
     if (!checkoutRes.ok) {
-      const errText = await checkoutRes.text()
-      throw new Error(errText || '結帳失敗，可能是庫存不足')
+      throw new Error(await checkoutRes.text() || '結帳失敗')
     }
-
     const orderData = await checkoutRes.json()
     const orderId = orderData.id
 
-    // 步驟2：處理付款
-    const paymentRequest = {
-      orderId,
-      method: paymentMethod.value
-    }
-
-    const payRes = await fetch(`${basic_url}/payments`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(paymentRequest)
-    })
-
-    if (!payRes.ok) {
-      const errText = await payRes.text()
-      throw new Error(errText || '付款失敗')
-    }
-
-    const payData = await payRes.json()
-
-    // 根據付款方式顯示不同的成功信息
+    // 步驟2：依付款方式決定
     if (paymentMethod.value === '貨到付款') {
-      successMsg.value = `訂單建立成功！訂單編號：${orderId}，狀態：等待送達確認付款，金額：${payData.total_amount || total.value}`
+      // 直接呼叫你後端的 confirm-cod API
+      const resp = await fetch(`${basic_url}/payments/confirm-cod/${orderId}`, {
+        method: 'POST',
+        headers
+      })
+      if (!resp.ok) throw new Error(await resp.text() || '貨到付款建立失敗')
+      const payData = await resp.json()
+      successMsg.value = `訂單建立成功！訂單編號：${orderId}，狀態：等待送達確認付款，金額：${payData.totalAmount || total.value}`
+      cartItems.value = []
+      setTimeout(() => router.push('/'), 3000)
     } else {
-      successMsg.value = `付款成功！訂單編號：${orderId}，狀態：${payData.status}，金額：${payData.total_amount || total.value}`
+      // 呼叫 ecpay/checkout 取得 HTML form
+      const token = localStorage.getItem('token')
+      const headers: any = { 'Content-Type': 'application/x-www-form-urlencoded' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      // 綠界 merchantTradeNo 最長 20 字元，只能用英文字母和數字
+      const merchantTradeNo = `ORDER${orderId}${Math.floor(Date.now() / 1000)}`.slice(0, 20)
+      const formRes = await fetch(`${basic_url}/payments/ecpay/checkout`, {
+        method: 'POST',
+        headers,
+        body: new URLSearchParams({
+          merchantTradeNo,
+          totalAmount: total.value.toString(),
+          itemName: '購物車商品'
+        })
+      })
+
+      if (!formRes.ok) throw new Error(await formRes.text() || '付款失敗')
+      const formHtml = await formRes.text()
+
+      // 直接將後端回傳的 form 注入頁面並自動提交
+      const div = document.createElement('div')
+      div.innerHTML = formHtml
+      document.body.appendChild(div)
+      ;(document.forms[0] as HTMLFormElement).submit()
     }
 
-    // 清空購物車資料（因為後端已經清空了）
-    cartItems.value = []
-
-    setTimeout(() => router.push('/'), 3000)
   } catch (e: any) {
     errorMsg.value = e.message || '結帳失敗'
   } finally {
