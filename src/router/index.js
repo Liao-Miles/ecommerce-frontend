@@ -7,6 +7,8 @@ import Checkout from '../views/Checkout.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import AdminLogin from '../views/AdminLogin.vue'
+import ForgotPassword from '../views/ForgotPassword.vue'
+import ResetPassword from '../views/ResetPassword.vue'
 
 const AdminDashboard = () => import('../views/AdminDashboard.vue');
 const AdminProducts = () => import('../views/AdminProducts.vue');
@@ -21,6 +23,8 @@ const routes = [
     { path: '/checkout', name: 'Checkout', component: Checkout },
     { path: '/login', component: Login },
     { path: '/register', component: Register },
+    { path: '/forgot-password', component: ForgotPassword },
+    { path: '/reset-password', component: ResetPassword },
     { path: '/admin/login', component: AdminLogin },
     { path: '/admin/dashboard', component: AdminDashboard },
     { path: '/admin/products', component: AdminProducts },

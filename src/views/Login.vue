@@ -127,6 +127,11 @@ onMounted(() => {
       <a href="#" @click.prevent="router.push('/register')">註冊帳號</a>
     </div>
 
+    <!-- 忘記密碼連結 -->
+    <div class="forgot-link">
+      <a href="#" @click.prevent="router.push('/forgot-password')">忘記密碼？</a>
+    </div>
+
     <!-- Google 登入按鈕 -->
     <div class="google-login">
       <div id="google-signin-btn"></div>
@@ -189,6 +194,16 @@ button:disabled {
   text-decoration: underline;
   cursor: pointer;
   margin-left: 4px;
+}
+.forgot-link {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 15px;
+}
+.forgot-link a {
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .google-login {
   margin-top: 32px;
