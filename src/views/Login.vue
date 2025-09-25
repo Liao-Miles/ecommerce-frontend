@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { basic_url } from '@/config'
 import { useCartStore } from '@/store/cart'
+import { useUserStore } from '@/store/user'
 
 // 宣告給 TypeScript 用，避免報錯
 declare global {
@@ -17,6 +18,7 @@ const errorMsg = ref('')
 const loading = ref(false)
 const router = useRouter()
 const cartStore = useCartStore()
+const userStore = useUserStore()
 
 function getSessionId() {
   let sessionId = localStorage.getItem('sessionId')
@@ -46,6 +48,8 @@ const handleLogin = async () => {
     localStorage.setItem('token', data.token)
     if (data.userId) {
       localStorage.setItem('userId', data.userId)
+      localStorage.setItem('userEmail', email.value)
+      userStore.setUser(email.value)
       await new Promise(resolve => setTimeout(resolve, 500))
       await cartStore.fetchCart()
       localStorage.removeItem('sessionId')
@@ -72,8 +76,10 @@ function handleGoogleLogin(response: any) {
       })
       .then(async data => {
         localStorage.setItem('token', data.token)
-        if (data.userId) {
+        if (data.userId && data.email) {
           localStorage.setItem('userId', data.userId)
+          localStorage.setItem('userEmail', data.email)
+          userStore.setUser(data.email)
           await new Promise(resolve => setTimeout(resolve, 500))
           await cartStore.fetchCart()
         }
