@@ -65,10 +65,11 @@ const handleLogin = async () => {
 // Google 登入 callback
 function handleGoogleLogin(response: any) {
   loading.value = true
+  const sessionId = getSessionId()
   fetch(`${basic_url}/api/auth/oauth2/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken: response.credential })
+    body: JSON.stringify({ idToken: response.credential, sessionId })
   })
       .then(async res => {
         if (!res.ok) throw new Error(await res.text())
@@ -82,6 +83,7 @@ function handleGoogleLogin(response: any) {
           userStore.setUser(data.email)
           await new Promise(resolve => setTimeout(resolve, 500))
           await cartStore.fetchCart()
+          localStorage.removeItem('sessionId') // <--- 這裡也要移除
         }
         router.push('/products')
       })
@@ -92,6 +94,7 @@ function handleGoogleLogin(response: any) {
         loading.value = false
       })
 }
+
 
 onMounted(() => {
   const init = () => {
