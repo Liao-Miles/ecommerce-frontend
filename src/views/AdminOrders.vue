@@ -35,7 +35,18 @@
               </span>
             </td>
             <td>
-              <span class="badge" :style="'background:#888;'">{{ paymentStatusText[o.paymentStatus] || o.paymentStatus }}</span>
+              <span class="badge" :style="'background:#888;'" v-if="updatingPaymentOrderId !== o.id">
+                {{ paymentStatusText[o.paymentStatus] || o.paymentStatus }}
+              </span>
+              <select v-model="o.paymentStatus"
+                      :disabled="updatingPaymentOrderId === o.id || !canEditStatus(o.status)"
+                      @change="onPaymentStatusChange(o)"
+                      class="status-select"
+                      :data-order-id="o.id"
+                      v-if="updatingPaymentOrderId !== o.id">
+                <option v-for="s in paymentStatusOptions" :key="s.value" :value="s.value">{{ s.text }}</option>
+              </select>
+              <span v-if="updatingPaymentOrderId === o.id" style="color:#888;font-size:13px;">更新中...</span>
             </td>
             <td>
               <button class="btn-detail" @click="showDetail(o)">查看詳情</button>
@@ -78,9 +89,13 @@ const paymentStatusText: Record<string, string> = {
   [PaymentStatus.REFUNDED]: '已退款',
 };
 
-interface OrderUser {
-  email: string;
-}
+const paymentStatusOptions = [
+  { value: PaymentStatus.PENDING, text: '待付款' },
+  { value: PaymentStatus.SUCCESS, text: '付款成功' },
+  { value: PaymentStatus.FAILED, text: '付款失敗' },
+  { value: PaymentStatus.REFUNDED, text: '已退款' },
+];
+
 interface Order {
   id: number;
   userId: number;
@@ -99,6 +114,7 @@ const users = ref<{ [key: number]: string }>({});
 const loading = ref(true);
 const errorMsg = ref('');
 const updatingOrderId = ref<number | null>(null);
+const updatingPaymentOrderId = ref<number | null>(null);
 const detailOrder = ref<any>(null);
 
 const sortKey = ref<'id'|'createdAt'>('id');
@@ -151,19 +167,6 @@ const fetchOrders = async () => {
 // 狀態是否可編輯（已完成/已取消不可再更改）
 const canEditStatus = (status: string) => {
   return true;
-};
-
-// 狀態顏色
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'PENDING_PAYMENT': return '#f39c12';
-    case 'PAID': return '#3498db';
-    case 'CONFIRMED': return '#8e44ad';
-    case 'SHIPPED': return '#9b59b6';
-    case 'COMPLETED': return '#27ae60';
-    case 'CANCELLED': return '#e74c3c';
-    default: return '#95a5a6';
-  }
 };
 
 // 狀態中文
@@ -232,6 +235,41 @@ const onStatusChange = async (order: Order) => {
     if (oldStatus) order.status = oldStatus;
   } finally {
     updatingOrderId.value = null;
+  }
+};
+
+// 付款狀態切換事件
+const onPaymentStatusChange = async (order: Order) => {
+  const oldStatus = orders.value.find(o => o.id === order.id)?.paymentStatus;
+  if (!confirm(`確定要將付款狀態變更為「${paymentStatusText[order.paymentStatus] || order.paymentStatus}」嗎？`)) {
+    if (oldStatus) order.paymentStatus = oldStatus;
+    return;
+  }
+  updatingPaymentOrderId.value = order.id;
+  try {
+    const token = localStorage.getItem('admin_token');
+    await axios.put(`${basic_url}/admin/orders/${order.id}/payment-status`, { status: order.paymentStatus }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const idx = orders.value.findIndex(o => o.id === order.id);
+    if (idx !== -1) orders.value[idx].paymentStatus = order.paymentStatus;
+  } catch (e: any) {
+    if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+      alert('權限不足，請重新登入管理員帳號');
+      router.push('/admin/login');
+    } else if (e.response && e.response.status === 404) {
+      alert('訂單不存在');
+    } else if (e.response && e.response.status === 400) {
+      alert('請求格式錯誤');
+    } else {
+      alert('付款狀態更新失敗，請稍後再試');
+    }
+    if (oldStatus) order.paymentStatus = oldStatus;
+  } finally {
+    updatingPaymentOrderId.value = null;
   }
 };
 
