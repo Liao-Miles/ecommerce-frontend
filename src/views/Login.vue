@@ -97,21 +97,25 @@ function handleGoogleLogin(response: any) {
 
 
 onMounted(() => {
-  const init = () => {
-    if (window.google && window.google.accounts?.id) {
-      window.google.accounts.id.initialize({
-        client_id: '511398803371-lapa482s6npsp6tbiph4satd3b505fkh.apps.googleusercontent.com',
-        callback: handleGoogleLogin
-      })
-      window.google.accounts.id.renderButton(
+  if (router.currentRoute.value.path === '/login') {
+    const init = () => {
+      if (window.google && window.google.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: '511398803371-lapa482s6npsp6tbiph4satd3b505fkh.apps.googleusercontent.com',
+          callback: handleGoogleLogin
+        });
+        window.google.accounts.id.renderButton(
           document.getElementById('google-signin-btn'),
           { theme: 'outline', size: 'large' }
-      )
+        );
+      }
+    };
+    if (document.readyState === 'complete') {
+      init();
     } else {
-      setTimeout(init, 300)
+      window.addEventListener('DOMContentLoaded', init);
     }
   }
-  init()
 })
 </script>
 

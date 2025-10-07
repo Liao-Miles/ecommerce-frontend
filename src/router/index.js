@@ -14,6 +14,7 @@ const AdminDashboard = () => import('../views/AdminDashboard.vue');
 const AdminProducts = () => import('../views/AdminProducts.vue');
 const AdminOrders = () => import('../views/AdminOrders.vue');
 const AdminUsers = () => import('../views/AdminUsers.vue');
+const AdminHome = () => import('../views/AdminHome.vue');
 
 const routes = [
     { path: '/', component: Home },
@@ -30,6 +31,7 @@ const routes = [
     { path: '/admin/products', component: AdminProducts },
     { path: '/admin/orders', component: AdminOrders },
     { path: '/admin/users', component: AdminUsers },
+    { path: '/admin/home', component: AdminHome },
 ]
 
 const router = createRouter({

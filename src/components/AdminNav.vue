@@ -9,6 +9,9 @@
     <router-link to="/admin/orders" :class="{active: isActive('/admin/orders')}">
       <span class="icon">🧾</span> 訂單管理
     </router-link>
+    <router-link to="/admin/home" :class="{active: isActive('/admin/home')}">
+      <span class="icon">🏠</span> 首頁管理
+    </router-link>
   </nav>
 </template>
 
